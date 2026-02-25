@@ -32,7 +32,6 @@ AI Root Cause Explanation
 
 ## 🛠️ Tech Stack
 | Component | Technology |
-|--------|------------|
 Frontend | Streamlit |
 Backend | Python |
 LLM | AWS Bedrock (NVIDIA Nemotron Nano – Free model) |
@@ -78,6 +77,7 @@ pip install -r requirements.txt
 
 ### 4️⃣ Configure AWS Credentials
 aws configure
+
 Provide:
 AWS Access Key
 AWS Secret Key
