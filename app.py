@@ -33,7 +33,6 @@ def generate_rca_pdf(rca_text: str) -> str:
 
 load_dotenv()
 
-print(os.getenv("AWS_ACCESS_KEY_ID"))
 
 def extract_section(text, section):
     try:
@@ -613,7 +612,7 @@ if analyze_btn or 'results' in st.session_state:
                     title="Log Severity Distribution",
                     color="Severity"
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, use_container_width="stretch")
 
             if "timestamp" in df.columns:
                 df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
@@ -625,7 +624,7 @@ if analyze_btn or 'results' in st.session_state:
                     y="count",
                     title="Logs Over Time (Hourly)"
                 )
-                st.plotly_chart(fig2, use_container_width=True)
+                st.plotly_chart(fig2, use_container_width="stretch")
 
         else:
             st.info("No analytics available")
@@ -709,7 +708,7 @@ if analyze_btn or 'results' in st.session_state:
                                     showlegend=True,
                                     height=400
                                 )
-                                st.plotly_chart(fig1, use_container_width=True)
+                                st.plotly_chart(fig1, use_container_width="stretch")
                             else:
                                 st.info("No error codes found in logs")
                         else:
