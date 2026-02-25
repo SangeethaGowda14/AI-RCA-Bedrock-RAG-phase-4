@@ -63,6 +63,7 @@ AI-RCA-Bedrock-RAG-phase-4/
 
 ## ⚙️ Setup Instructions
 
+```bash
 ### 1️⃣ Clone Repository
 git clone https://github.com/SangeethaGowda14/AI-RCA-Bedrock-RAG-phase-4.git
 cd AI-RCA-Bedrock-RAG-phase-4
