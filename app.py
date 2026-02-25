@@ -1,3 +1,4 @@
+from rca.rca_engine import RCAEngine
 import streamlit as st
 import plotly.graph_objects as go  
 import plotly.express as px
@@ -7,6 +8,28 @@ from datetime import datetime, timedelta
 import yaml
 import os
 from dotenv import load_dotenv
+
+from fpdf import FPDF
+import tempfile
+
+def generate_rca_pdf(rca_text: str) -> str:
+    pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
+
+    pdf.set_font("Arial", "B", 14)
+    pdf.cell(0, 10, "AI Root Cause Analysis (RCA Report)", ln=True)
+
+    pdf.ln(5)
+    pdf.set_font("Arial", size=11)
+
+    for line in rca_text.split("\n"):
+        pdf.multi_cell(0, 8, line)
+
+    tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
+    pdf.output(tmp_file.name)
+
+    return tmp_file.name
 
 load_dotenv()
 
@@ -39,6 +62,17 @@ from src.services.time_correlation import correlate_errors_by_time
 from src.services.automated_rca import generate_automated_rca
 
 # ... after imports ...
+if "rca_result" not in st.session_state:
+    st.session_state.rca_result = None
+
+if "rca_ran" not in st.session_state:
+    st.session_state.rca_ran = False
+    
+@st.cache_resource
+def load_rca_engine():
+    return RCAEngine()
+
+rca_engine = load_rca_engine()
 
 def analyze_logs(log_data, query=None, rag_engine=None, kb=None):
     """
@@ -55,6 +89,8 @@ def analyze_logs(log_data, query=None, rag_engine=None, kb=None):
         'kb_solutions': [],
         'solutions': []
     }
+
+    
    # -------------------------
 # PROMOTE KB → RECOMMENDED FIX
 # -------------------------
@@ -225,15 +261,6 @@ st.markdown('<h1 class="main-header">AI-Powered Log Analysis & RCA Assistant</h1
 # Sidebar
 with st.sidebar:
     st.header(" Analysis Parameters")
-
-with st.sidebar:
-    st.markdown("### 🤖 LLM Status")
-
-    if st.session_state.get("llm_ready", False):
-        st.success("LLM Connected")
-    else:
-        st.warning("LLM Not Connected")
-
     
     # Get available log structure
     log_structure = log_reader.get_available_logs()
@@ -382,26 +409,59 @@ if analyze_btn or 'results' in st.session_state:
     # Display results in tabs
    # --- Tabs definition ---
 
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
         "RCA Summary",
         "Analytics",
         "Evidence",
         "KB Fixes",
         "Log Details",
-        "AI Explanation",
+        "AI RCA",
+        "AI Explaination"
     ])
 
 # --- Tab usage ---
 
     with tab6:
-        st.subheader("🤖 AI Explanation")
+            st.header("🧠 Phase-4: AI Root Cause Analysis (AWS Bedrock)")
 
-        if results.get("llm_explanation"):
-            st.success("LLM Reasoning Active")
-            st.markdown(results["llm_explanation"])
-        else:
-            st.info("Run analysis to generate AI explanation.")
-   
+            log_query = st.text_area(
+                "Enter an issue / log summary:",
+                placeholder="Authentication failed repeatedly for multiple users"
+            )
+
+            if st.button("Analyze Root Cause", key="rca_button"):
+                if log_query.strip() == "":
+                    st.warning("Please enter a log description")
+                else:
+                    with st.spinner("Analyzing logs using RAG + Bedrock LLM..."):
+                        st.session_state.rca_result = rca_engine.analyze(log_query)
+                        st.session_state.rca_ran = True
+
+            # ✅ Render result WITHOUT changing page
+            if st.session_state.rca_ran:
+                st.success("AI Root Cause Analysis Generated")
+                st.markdown("### 📌 RCA Output")
+                st.write(st.session_state.rca_result)
+
+                # 🔽 PDF Download Section
+                pdf_path = generate_rca_pdf(st.session_state.rca_result)
+
+                with open(pdf_path, "rb") as f:
+                    st.download_button(
+                        label="📄 Download RCA as PDF",
+                        data=f,
+                        file_name="AI_RCA_Report.pdf",
+                        mime="application/pdf"
+                    )
+    with tab7:
+
+            st.subheader("🤖 AI EXPLAINATION")
+
+            if results.get("llm_explanation"):
+                st.success("LLM Reasoning Active")
+                st.markdown(results["llm_explanation"])
+            else:
+                st.info("Run analysis to generate AI explanation.")
     
     with tab1:
         st.subheader("🧠 Automated Root Cause Analysis")
@@ -971,3 +1031,4 @@ else:
 # Footer
 st.markdown("---")
 st.markdown("*LogSentry AI v2.0 | RAG-powered Troubleshooting Assistant | Phase 2 Implementation*")
+
