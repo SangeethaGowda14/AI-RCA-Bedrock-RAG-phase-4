@@ -82,12 +82,10 @@ Provide:
 AWS Access Key
 AWS Secret Key
 Region: us-east-1
-
 ⚠️ Ensure AWS Bedrock access is enabled in your account.
 
 ### ▶️ Run the Application
 streamlit run app.py
-
 Open browser:
 http://localhost:8501
 
@@ -114,9 +112,7 @@ AWS credentials handled securely via CLI configuration
 
 ### 👩‍💻 Author
 Sangeetha VL
-
 Information Science Engineering
-
 AI & Cloud Intern
 
 ### 📌 Future Enhancements
