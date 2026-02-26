@@ -41,6 +41,7 @@ Cloud | AWS |
 Version Control | Git & GitHub
 
 ## 📂 Project Structure
+```bash
 AI-RCA-Bedrock-RAG-phase-4/
 │
 ├── app.py # Streamlit main app
