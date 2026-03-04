@@ -4,3 +4,5 @@ __pycache__/
 *.pyc
 .aws/
 data/vectors/
+.streamlit/secrets.toml
+.env
