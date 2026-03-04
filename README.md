@@ -41,6 +41,7 @@ Cloud | AWS |
 Version Control | Git & GitHub
 
 ## 📂 Project Structure
+```bash
 AI-RCA-Bedrock-RAG-phase-4/
 │
 ├── app.py # Streamlit main app
@@ -63,6 +64,10 @@ AI-RCA-Bedrock-RAG-phase-4/
 
 ## ⚙️ Setup Instructions
 
+<<<<<<< HEAD
+=======
+```bash
+>>>>>>> 7de014158440b01e748c1e18d88e546d1cc80111
 ### 1️⃣ Clone Repository
 git clone https://github.com/SangeethaGowda14/AI-RCA-Bedrock-RAG-phase-4.git
 cd AI-RCA-Bedrock-RAG-phase-4
@@ -81,12 +86,10 @@ Provide:
 AWS Access Key
 AWS Secret Key
 Region: us-east-1
-
 ⚠️ Ensure AWS Bedrock access is enabled in your account.
 
 ### ▶️ Run the Application
 streamlit run app.py
-
 Open browser:
 http://localhost:8501
 
