@@ -59,6 +59,9 @@ from src.services.template_rca import TemplateRCA
 from src.services.anomaly_detector import detect_error_anomaly
 from src.services.time_correlation import correlate_errors_by_time
 from src.services.automated_rca import generate_automated_rca
+from src.log_classifier import LogClassifier
+from src.pattern_detector import PatternDetector
+from src.time_anomaly import TimeSeriesAnomaly
 
 # ... after imports ...
 if "rca_result" not in st.session_state:
@@ -515,84 +518,96 @@ if analyze_btn or 'results' in st.session_state:
         with col3:
             st.metric("Unique Error Types", len(set(results.get('error_lines', []))))
         
-    # 🚨 Anomaly Detection Result
-    if "anomaly" in results:
-        st.markdown("### 🚨 Anomaly Detection")
+        # 🚨 Anomaly Detection Result
+        if "anomaly" in results:
+            st.markdown("### 🚨 Anomaly Detection")
 
-    if results["anomaly"]["anomaly_detected"]:
-        st.error(results["anomaly"]["message"])
-    else:
-        st.success(results["anomaly"]["message"])
+            if results["anomaly"]["anomaly_detected"]:
+                st.error(results["anomaly"]["message"])
+            else:
+                st.success(results["anomaly"]["message"])
 
-        st.write(
-            f"Error Count: {results['anomaly']['error_count']} | "
-        f"Threshold: {results['anomaly']['threshold']}"
-        )
-
-        # Errors Found section - SCROLLABLE GREEN TEXT
-        st.markdown("###  Errors Found")
-        
-        # Get error lines (prioritize exact matches, then similar errors)
-        error_lines = []
-        if 'exact_matches' in results and results['exact_matches']:
-            error_lines = results['exact_matches']
-            st.success(f" Found {len(error_lines)} exact matches")
-        elif 'similar_errors' in results and results['similar_errors']:
-            error_lines = results['similar_errors']
-            st.warning(f" Found {len(error_lines)} similar errors")
-        
-        if error_lines:
-            # Create a scrollable container for error lines
-            max_height = 300  # Maximum height in pixels
-            error_text = ""
-            
-            for i, line in enumerate(error_lines[:10], 1):  # Show first 10 errors
-                # Truncate long lines for the display
-                display_line = line
-                if len(line) > 100:
-                    display_line = line[:100] + "..."
-                error_text += f"{i}. {display_line}\n"
-            
-            # Create scrollable text area
-            st.text_area(
-                "Error Details",
-                value=error_text,
-                height=min(max_height, 30 + len(error_lines) * 25),  # Dynamic height
-                key="error_display",
-                disabled=True,  # Read-only
-                label_visibility="collapsed"  # Hide the label
+            st.write(
+                f"Error Count: {results['anomaly']['error_count']} | "
+                f"Threshold: {results['anomaly']['threshold']}"
             )
+
+            # 🔎 Pattern Detection (NEW)
+            if "logs" in results:
+                pattern_detector = PatternDetector()
+
+                new_patterns = pattern_detector.detect_new_patterns(results["logs"])
+
+                if new_patterns:
+                    st.warning("⚠ New unseen error patterns detected")
+
+                    for p in new_patterns:
+                        st.write("•", p)
+
+            # Errors Found section - SCROLLABLE GREEN TEXT
+            st.markdown("###  Errors Found")
             
-            # Show full error details in expandable sections
-            st.markdown("** Full Error Details:**")
-            for i, line in enumerate(error_lines[:5], 1):  # Show first 5 full errors
-                with st.expander(f"Error #{i}", expanded=False):
-                    st.code(line, language='text')
-        else:
-            st.info("No matching errors found")
-        
-        # Recommended Fix section
-        st.markdown("###  Recommended Fix")
-        
-        if 'solutions' in results and results['solutions']:
-            for i, sol in enumerate(results['solutions'][:2], 1):  # Show first 2 solutions
-                with st.container():
-                    st.markdown(f"**{sol.get('error', 'Issue')}**")
-                    if sol.get('exact_match', False):
-                        st.success(" **Exact match from Knowledge Base**")
-                    
-                    solution_text = sol.get('solution', '')
-                    if solution_text:
-                        # Format as numbered list
-                        lines = solution_text.split('\n')
-                        for j, step in enumerate(lines, 1):
-                            if step.strip():
-                                st.write(f"{j}. {step.strip()}")
-                    st.markdown("---")
-        else:
-            st.info("No specific solution found in Knowledge Base")
-            st.markdown("### 📄 Template RCA (Phase-3)")
-            st.code(results.get("template_rca", "No RCA generated"))
+            # Get error lines (prioritize exact matches, then similar errors)
+            error_lines = []
+            if 'exact_matches' in results and results['exact_matches']:
+                error_lines = results['exact_matches']
+                st.success(f" Found {len(error_lines)} exact matches")
+            elif 'similar_errors' in results and results['similar_errors']:
+                error_lines = results['similar_errors']
+                st.warning(f" Found {len(error_lines)} similar errors")
+            
+            if error_lines:
+                # Create a scrollable container for error lines
+                max_height = 300  # Maximum height in pixels
+                error_text = ""
+                
+                for i, line in enumerate(error_lines[:10], 1):  # Show first 10 errors
+                    # Truncate long lines for the display
+                    display_line = line
+                    if len(line) > 100:
+                        display_line = line[:100] + "..."
+                    error_text += f"{i}. {display_line}\n"
+                
+                # Create scrollable text area
+                st.text_area(
+                    "Error Details",
+                    value=error_text,
+                    height=min(max_height, 30 + len(error_lines) * 25),  # Dynamic height
+                    key="error_display",
+                    disabled=True,  # Read-only
+                    label_visibility="collapsed"  # Hide the label
+                )
+                
+                # Show full error details in expandable sections
+                st.markdown("** Full Error Details:**")
+                for i, line in enumerate(error_lines[:5], 1):  # Show first 5 full errors
+                    with st.expander(f"Error #{i}", expanded=False):
+                        st.code(line, language='text')
+            else:
+                st.info("No matching errors found")
+            
+            # Recommended Fix section
+            st.markdown("###  Recommended Fix")
+            
+            if 'solutions' in results and results['solutions']:
+                for i, sol in enumerate(results['solutions'][:2], 1):  # Show first 2 solutions
+                    with st.container():
+                        st.markdown(f"**{sol.get('error', 'Issue')}**")
+                        if sol.get('exact_match', False):
+                            st.success(" **Exact match from Knowledge Base**")
+                        
+                        solution_text = sol.get('solution', '')
+                        if solution_text:
+                            # Format as numbered list
+                            lines = solution_text.split('\n')
+                            for j, step in enumerate(lines, 1):
+                                if step.strip():
+                                    st.write(f"{j}. {step.strip()}")
+                        st.markdown("---")
+            else:
+                st.info("No specific solution found in Knowledge Base")
+                st.markdown("### 📄 Template RCA (Phase-3)")
+                st.code(results.get("template_rca", "No RCA generated"))
 
 
     with tab2:
