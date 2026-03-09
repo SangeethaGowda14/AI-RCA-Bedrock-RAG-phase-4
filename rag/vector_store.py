@@ -7,8 +7,11 @@ class VectorStore:
         self.model = SentenceTransformer("all-MiniLM-L6-v2")
         self.index = faiss.IndexFlatL2(384)
         self.documents = []
-
         self._load_logs()
+    
+    def search(self, query, k=3):
+        docs = self.similarity_search(query, k=k)
+        return [doc.page_content for doc in docs]
 
     def _load_logs(self):
         with open("data/logs.txt", "r") as f:

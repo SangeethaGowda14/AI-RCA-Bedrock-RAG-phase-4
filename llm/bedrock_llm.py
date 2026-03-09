@@ -15,6 +15,7 @@ class BedrockLLM:
             contentType="application/json",
             accept="application/json",
             body=json.dumps({
+
                 "messages": [
                     {
                         "role": "user",
@@ -23,7 +24,7 @@ class BedrockLLM:
                         ]
                     }
                 ],
-                "max_tokens": 300,
+                "max_tokens": 800,
                 "temperature": 0.3
             })
         )

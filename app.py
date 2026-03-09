@@ -4,6 +4,12 @@ import plotly.graph_objects as go
 import plotly.express as px
 import pandas as pd
 import streamlit as st
+from llm.bedrock_llm import BedrockLLM
+
+# Initialize session state
+if "llm_explanation" not in st.session_state:
+    st.session_state.llm_explanation = ""
+
 from datetime import datetime, timedelta
 import yaml
 import os
@@ -12,45 +18,50 @@ from dotenv import load_dotenv
 from fpdf import FPDF
 import tempfile
 
-def generate_rca_pdf(rca_text: str) -> str:
-    pdf = FPDF()
-    pdf.set_auto_page_break(auto=True, margin=15)
-    pdf.add_page()
+def generate_rca_pdf(rca_result):
 
-    pdf.set_font("Arial", "B", 14)
-    pdf.cell(0, 10, "AI Root Cause Analysis (RCA Report)", ln=True)
+    from reportlab.lib.pagesizes import letter
+    from reportlab.pdfgen import canvas
 
-    pdf.ln(5)
-    pdf.set_font("Arial", size=11)
+    pdf_path = "rca_report.pdf"
+    c = canvas.Canvas(pdf_path, pagesize=letter)
 
-    for line in rca_text.split("\n"):
-        pdf.multi_cell(0, 8, line)
+    y = 750
 
-    tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
-    pdf.output(tmp_file.name)
+    # Convert RCA dictionary to readable text
+    text_lines = []
 
-    return tmp_file.name
+    if isinstance(rca_result, dict):
 
-load_dotenv()
+        text_lines.append("AI Root Cause Analysis Report\n")
 
+        text_lines.append("Errors Detected:")
+        for e in rca_result.get("error_lines", []):
+            text_lines.append(f"- {e}")
 
-def extract_section(text, section):
-    try:
-        start = text.index(section) + len(section)
-        end = min(
-            [text.index(s, start) for s in [
-                "Response:",
-                "What happened:",
-                "Possible root cause:",
-                "Recommended fix:",
-                "Additional considerations:"
-            ] if s != section and s in text] + [len(text)]
-        )
-        return text[start:end].strip()
-    except ValueError:
-        return ""
+        text_lines.append("\nDetected Patterns:")
+        for p in rca_result.get("patterns", []):
+            text_lines.append(f"- {p}")
 
+        text_lines.append("\nEvent Correlations:")
+        for crr in rca_result.get("correlations", []):
+            text_lines.append(f"- {crr}")
 
+    else:
+        text_lines = str(rca_result).split("\n")
+
+    # Write lines to PDF
+    for line in text_lines:
+        c.drawString(50, y, line)
+        y -= 20
+
+        if y < 50:
+            c.showPage()
+            y = 750
+
+    c.save()
+
+    return pdf_path
 
 from src.services.log_reader import LogReader
 from src.services.rag_engine import RAGEngine
@@ -63,6 +74,12 @@ from src.log_classifier import LogClassifier
 from src.pattern_detector import PatternDetector
 from src.time_anomaly import TimeSeriesAnomaly
 from src.correlation_engine import CorrelationEngine
+from llm.bedrock_llm import BedrockLLM
+from rag.retriever import retrieve_logs
+from rag.vector_store import VectorStore
+
+# Load vector store
+vector_store = VectorStore()
 
 # ... after imports ...
 if "rca_result" not in st.session_state:
@@ -348,7 +365,7 @@ if analyze_btn or 'results' in st.session_state:
                 results["template_rca"] = template_rca.generate(
                     log_data.get("structured", [])
                 )
-                # 🔎 Phase 3 – Anomaly Detection
+                # 🔎 Phase 4 – Anomaly Detection
                 anomaly_result = detect_error_anomaly(
                     structured_logs=log_data.get("structured", []),
                     threshold=5
@@ -356,7 +373,7 @@ if analyze_btn or 'results' in st.session_state:
 
                 results["anomaly"] = anomaly_result
                 
-                # ⏱ Phase 3 – Time-Based Correlation
+                # ⏱ Phase 4 – Time-Based Correlation
                 time_corr = correlate_errors_by_time(
                     structured_logs=log_data.get("structured", []),
                     window_minutes=5,
@@ -365,7 +382,7 @@ if analyze_btn or 'results' in st.session_state:
 
                 results["time_correlation"] = time_corr
 
-                # 🧠 Phase 3 – Automated RCA
+                # 🧠 Phase 4 – Automated RCA
                 auto_rca = generate_automated_rca(
                     anomaly_result=results.get("anomaly_detection", {}),
                     time_corr_result=results.get("time_correlation", {}),
@@ -383,9 +400,6 @@ if analyze_btn or 'results' in st.session_state:
                     zone=zone,
                     client=client
                 )
-
-            
-
                 
                 # Merge all results
                 results.update({
@@ -458,14 +472,59 @@ if analyze_btn or 'results' in st.session_state:
                     )
     with tab7:
 
-            st.subheader("🤖 AI EXPLAINATION")
+        st.subheader("🤖 AI EXPLANATION")
 
-            if results.get("llm_explanation"):
-                st.success("LLM Reasoning Active")
-                st.markdown(results["llm_explanation"])
-            else:
-                st.info("Run analysis to generate AI explanation.")
-    
+        error_lines = results.get("error_lines", [])
+
+        if error_lines:
+
+            if st.session_state.llm_explanation == "":
+
+                try:
+                    llm = BedrockLLM()
+
+                    # Retrieve relevant logs using RAG
+                    relevant_logs = retrieve_logs(vector_store, query)
+
+                    log_context = "\n".join(relevant_logs)
+
+                    prompt = f"""
+    You are an expert Site Reliability Engineer.
+
+    User Question:
+    {query}
+
+    Relevant System Logs:
+    {log_context}
+
+    Explain the issue clearly.
+
+    Provide:
+    1. Root Cause
+    2. Why it happened
+    3. Impact
+    4. Recommended Fix
+    """
+
+                    explanation = llm.generate(prompt)
+
+                    st.session_state.llm_explanation = explanation
+
+                except Exception as e:
+                    st.error(f"LLM connection failed: {e}")
+
+            st.success("LLM Reasoning Active")
+
+            st.text_area(
+                "AI Explanation",
+                st.session_state.llm_explanation,
+                height=400
+            )
+
+        else:
+            st.info("Run analysis to generate AI explanation.")
+
+
     with tab1:
         st.subheader("🧠 Automated Root Cause Analysis")
 
