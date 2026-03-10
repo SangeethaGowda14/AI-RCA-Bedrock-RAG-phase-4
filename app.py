@@ -426,14 +426,13 @@ if analyze_btn or 'results' in st.session_state:
     # Display results in tabs
    # --- Tabs definition ---
 
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6, = st.tabs([
         "RCA Summary",
         "Analytics",
         "Evidence",
         "KB Fixes",
         "Log Details",
         "AI RCA",
-        "AI Explaination"
     ])
 
 # --- Tab usage ---
@@ -454,11 +453,55 @@ if analyze_btn or 'results' in st.session_state:
                         st.session_state.rca_result = rca_engine.analyze(log_query)
                         st.session_state.rca_ran = True
 
-            # ✅ Render result WITHOUT changing page
-            if st.session_state.rca_ran:
-                st.success("AI Root Cause Analysis Generated")
-                st.markdown("### 📌 RCA Output")
-                st.write(st.session_state.rca_result)
+                # ✅ Render result WITHOUT changing page
+                if st.session_state.rca_ran:
+                    st.success("AI Root Cause Analysis Generated")
+
+                    rca_data = st.session_state.rca_result
+
+                    # 🔍 RCA SUMMARY
+                    st.markdown("## 🔍 RCA Summary")
+
+                    st.markdown(f"""
+                                
+                **Query:**  
+                {log_query}
+
+                **Total Errors:** {rca_data.get("log_stats", {}).get("total_errors", "N/A")}
+
+                **Log Files:** {rca_data.get("log_stats", {}).get("file_count", "N/A")}
+                """)
+
+                    st.markdown("### 🚨 Errors Detected")
+
+                    for err in rca_data.get("error_lines", []):
+                        st.markdown(f"- {err}")
+
+                    st.markdown("## 🤖 AI Root Cause Explanation")
+
+                    context = f"""
+                Query:
+                {log_query}
+
+                Errors:
+                {rca_data.get("error_lines")}
+
+                Patterns:
+                {rca_data.get("patterns")}
+
+                Correlations:
+                {rca_data.get("correlations")}
+                """
+
+                    ai_explanation = rca_engine.generate_ai_explanation(context)
+
+                    st.markdown(ai_explanation)
+
+                    st.markdown("## 🛠 Recommended Mitigation")
+
+                    mitigation = rca_engine.generate_mitigation(context)
+
+                    st.markdown(mitigation)
 
                 # 🔽 PDF Download Section
                 pdf_path = generate_rca_pdf(st.session_state.rca_result)
@@ -470,59 +513,6 @@ if analyze_btn or 'results' in st.session_state:
                         file_name="AI_RCA_Report.pdf",
                         mime="application/pdf"
                     )
-    with tab7:
-
-        st.subheader("🤖 AI EXPLANATION")
-
-        error_lines = results.get("error_lines", [])
-
-        if error_lines:
-
-            if st.session_state.llm_explanation == "":
-
-                try:
-                    llm = BedrockLLM()
-
-                    # Retrieve relevant logs using RAG
-                    relevant_logs = retrieve_logs(vector_store, query)
-
-                    log_context = "\n".join(relevant_logs)
-
-                    prompt = f"""
-    You are an expert Site Reliability Engineer.
-
-    User Question:
-    {query}
-
-    Relevant System Logs:
-    {log_context}
-
-    Explain the issue clearly.
-
-    Provide:
-    1. Root Cause
-    2. Why it happened
-    3. Impact
-    4. Recommended Fix
-    """
-
-                    explanation = llm.generate(prompt)
-
-                    st.session_state.llm_explanation = explanation
-
-                except Exception as e:
-                    st.error(f"LLM connection failed: {e}")
-
-            st.success("LLM Reasoning Active")
-
-            st.text_area(
-                "AI Explanation",
-                st.session_state.llm_explanation,
-                height=400
-            )
-
-        else:
-            st.info("Run analysis to generate AI explanation.")
 
 
     with tab1:
