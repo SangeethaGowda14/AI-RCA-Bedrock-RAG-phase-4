@@ -17,37 +17,44 @@ class RCAEngine:
     def generate_ai_explanation(self, context):
 
         prompt = f"""
-    You are a Site Reliability Engineer.
+        You are an expert Site Reliability Engineer performing Root Cause Analysis.
 
-    Analyze the log evidence and produce a SHORT RCA report.
+        Analyze the log evidence and produce a structured RCA report.
 
-    Log Evidence:
-    {context}
+        Log Context:
+        {context}
 
-    Return ONLY plain text in the following format:
+        Return the RCA in the following format:
 
-    Root Cause:
-    (one sentence)
+        Root Cause Analysis
 
-    Impact:
-    (one sentence)
+        Issue Summary:
+        (Explain the issue in 2 sentences)
 
-    Fix:
-    • step
-    • step
-    • step
+        Root Cause Explanation (Simple Technical Language):
+        (Explain the problem clearly)
 
-    Rules:
-    Do NOT return code.
-    Do NOT return Python variables.
-    """
+        Causes:
+        1. Cause title
+        - explanation
+        2. Cause title
+        - explanation
+        3. Cause title
+        - explanation
 
+        Use clear technical language suitable for engineers.
+
+        Do NOT return code.
+        Do NOT return JSON.
+        Only return formatted text.
+        """
+        
         response = self.bedrock_client.invoke_model(
             modelId="meta.llama3-8b-instruct-v1:0",
             body=json.dumps({
                 "prompt": prompt,
-                "max_gen_len": 120,
-                "temperature": 0.2
+                "max_gen_len": 300,
+                "temperature": 0.3
             })
         )
 
@@ -55,18 +62,7 @@ class RCAEngine:
 
         result = response_body["generation"]
 
-        # Clean unwanted text
-        result = result.replace("root_cause =", "")
-        result = result.replace("impact =", "")
-        result = result.replace("fix =", "")
-        result = result.replace("#", "")
-        result = result.replace("(", "")
-        result = result.replace(")", "")
-        result = result.replace('"', "")
-        result = result.replace("return", "")
-        result = result.strip()
-
-        return result
+        return result.strip()
 
 
     def generate_mitigation(self, context):
