@@ -17,26 +17,30 @@ class RCAEngine:
     def generate_ai_explanation(self, context):
 
         prompt = f"""
-        You are an expert Site Reliability Engineer.
+    You are a Site Reliability Engineer.
 
-        Analyze the log evidence and provide a SHORT Root Cause Analysis.
+    Analyze the log evidence and produce a SHORT RCA report.
 
-        Log Evidence:
-        {context}
+    Log Evidence:
+    {context}
 
-        Return ONLY these sections:
+    Return ONLY plain text in the following format:
 
-        Root Cause:
-        (1–2 lines)
+    Root Cause:
+    (one sentence)
 
-        Impact:
-        (1–2 lines)
+    Impact:
+    (one sentence)
 
-        Fix:
-        (2–3 bullet points)
+    Fix:
+    • step
+    • step
+    • step
 
-        Keep the answer concise and under 120 words.
-        """
+    Rules:
+    Do NOT return code.
+    Do NOT return Python variables.
+    """
 
         response = self.bedrock_client.invoke_model(
             modelId="meta.llama3-8b-instruct-v1:0",
@@ -49,20 +53,45 @@ class RCAEngine:
 
         response_body = json.loads(response["body"].read())
 
-        return response_body["generation"]
+        result = response_body["generation"]
 
+        # Clean unwanted text
+        result = result.replace("root_cause =", "")
+        result = result.replace("impact =", "")
+        result = result.replace("fix =", "")
+        result = result.replace("#", "")
+        result = result.replace("(", "")
+        result = result.replace(")", "")
+        result = result.replace('"', "")
+        result = result.replace("return", "")
+        result = result.strip()
+
+        return result
 
 
     def generate_mitigation(self, context):
 
         prompt = f"""
-        Based on the RCA context below, provide SHORT mitigation steps.
+        You are a Site Reliability Engineer.
+
+        Based on the RCA context below, suggest mitigation steps.
 
         Context:
         {context}
 
-        Return ONLY 3 bullet points.
-        Keep the answer under 60 words.
+        Return ONLY 3 mitigation steps in bullet format.
+
+        Example format:
+
+        • Step 1
+        • Step 2
+        • Step 3
+
+        Rules:
+        - Do NOT write code
+        - Do NOT use variables
+        - Do NOT return JSON
+        - Only return bullet points
         """
 
         response = self.bedrock_client.invoke_model(
@@ -74,9 +103,18 @@ class RCAEngine:
             })
         )
 
+        # Convert Bedrock response
         response_body = json.loads(response["body"].read())
 
-        return response_body["generation"]
+        result = response_body["generation"]
+
+        # Split into lines
+        lines = result.split("\n")
+
+        # Keep only bullet points
+        clean_lines = [line.strip() for line in lines if line.strip().startswith("•")]
+
+        return "\n".join(clean_lines)
 
     def analyze(self, log_query):
 

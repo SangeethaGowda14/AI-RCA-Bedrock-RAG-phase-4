@@ -477,8 +477,6 @@ if analyze_btn or 'results' in st.session_state:
                     for err in rca_data.get("error_lines", []):
                         st.markdown(f"- {err}")
 
-                    st.markdown("## 🤖 AI Root Cause Explanation")
-
                     context = f"""
                 Query:
                 {log_query}
@@ -493,15 +491,18 @@ if analyze_btn or 'results' in st.session_state:
                 {rca_data.get("correlations")}
                 """
 
+                    # AI explanation
+                    st.markdown("## 🤖 AI Root Cause Explanation")
                     ai_explanation = rca_engine.generate_ai_explanation(context)
-
                     st.markdown(ai_explanation)
 
+                    # Mitigation section
                     st.markdown("## 🛠 Recommended Mitigation")
-
                     mitigation = rca_engine.generate_mitigation(context)
-
                     st.markdown(mitigation)
+
+                   
+                   
 
                 # 🔽 PDF Download Section
                 pdf_path = generate_rca_pdf(st.session_state.rca_result)
@@ -513,7 +514,6 @@ if analyze_btn or 'results' in st.session_state:
                         file_name="AI_RCA_Report.pdf",
                         mime="application/pdf"
                     )
-
 
     with tab1:
         st.subheader("🧠 Automated Root Cause Analysis")
