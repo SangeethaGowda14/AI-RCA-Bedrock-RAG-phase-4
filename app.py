@@ -6,6 +6,12 @@ import pandas as pd
 import streamlit as st
 from llm.bedrock_llm import BedrockLLM
 
+@st.cache_resource
+def load_rca_engine():
+    return RCAEngine()
+
+rca_engine = load_rca_engine()
+
 # Initialize session state
 if "llm_explanation" not in st.session_state:
     st.session_state.llm_explanation = ""
@@ -455,65 +461,42 @@ if analyze_btn or 'results' in st.session_state:
 
                 # ✅ Render result WITHOUT changing page
                 if st.session_state.rca_ran:
-                    st.success("AI Root Cause Analysis Generated")
 
                     rca_data = st.session_state.rca_result
 
-                    # 🔍 RCA SUMMARY
-                    st.markdown("## 🔍 RCA Summary")
+                    st.success("AI Root Cause Analysis Generated")
 
-                    st.markdown(f"""
-                                
-                **Query:**  
-                {log_query}
+                    st.markdown("## 📌 RCA Output")
 
-                **Total Errors:** {rca_data.get("log_stats", {}).get("total_errors", "N/A")}
+                    # RCA Summary
+                    st.markdown("### 🔍 RCA Summary")
 
-                **Log Files:** {rca_data.get("log_stats", {}).get("file_count", "N/A")}
-                """)
+                    st.markdown(f"**Total Errors:** {rca_data.get('log_stats', {}).get('total_errors', 'N/A')}")
+                    st.markdown(f"**Log Files:** {rca_data.get('log_stats', {}).get('file_count', 'N/A')}")
 
+                    # Errors
                     st.markdown("### 🚨 Errors Detected")
-
                     for err in rca_data.get("error_lines", []):
                         st.markdown(f"- {err}")
 
-                    context = f"""
-                Query:
-                {log_query}
+                    # AI Explanation (Bedrock)
+                    st.markdown("### 🤖 AI Root Cause Explanation")
+                    ai_text = rca_engine.generate_ai_explanation(rca_data)
+                    st.markdown(ai_text)
 
-                Errors:
-                {rca_data.get("error_lines")}
+                    
+                    # PDF Download
+                    pdf_path = generate_rca_pdf(rca_data)
 
-                Patterns:
-                {rca_data.get("patterns")}
-
-                Correlations:
-                {rca_data.get("correlations")}
-                """
-
-                    # AI explanation
-                    st.markdown("## 🤖 AI Root Cause Explanation")
-                    ai_explanation = rca_engine.generate_ai_explanation(context)
-                    st.markdown(ai_explanation)
-
-                    # Mitigation section
-                    st.markdown("## 🛠 Recommended Mitigation")
-                    mitigation = rca_engine.generate_mitigation(context)
-                    st.markdown(mitigation)
-
-                   
-                   
-
-                # 🔽 PDF Download Section
-                pdf_path = generate_rca_pdf(st.session_state.rca_result)
-
-                with open(pdf_path, "rb") as f:
-                    st.download_button(
-                        label="📄 Download RCA as PDF",
-                        data=f,
-                        file_name="AI_RCA_Report.pdf",
-                        mime="application/pdf"
-                    )
+                    with open(pdf_path, "rb") as f:
+                        st.download_button(
+                            label="📄 Download RCA as PDF",
+                            data=f,
+                            file_name="AI_RCA_Report.pdf",
+                            mime="application/pdf"
+                        )
+                        
+                       
 
     with tab1:
         st.subheader("🧠 Automated Root Cause Analysis")

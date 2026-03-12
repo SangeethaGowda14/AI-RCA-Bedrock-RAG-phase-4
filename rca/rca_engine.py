@@ -17,38 +17,41 @@ class RCAEngine:
     def generate_ai_explanation(self, context):
 
         prompt = f"""
-        You are an expert Site Reliability Engineer performing Root Cause Analysis.
+You are an expert Site Reliability Engineer.
 
-        Analyze the log evidence and produce a structured RCA report.
+Analyze the log evidence and produce a Root Cause Analysis report.
 
-        Log Context:
-        {context}
+Log Evidence:
+{context}
 
-        Return the RCA in the following format:
+Return the RCA report in this format:
 
-        Root Cause Analysis
+Root Cause Analysis
 
-        Issue Summary:
-        (Explain the issue in 2 sentences)
+Issue Summary:
+(2 sentences)
 
-        Root Cause Explanation (Simple Technical Language):
-        (Explain the problem clearly)
+Root Cause Explanation:
+• point
+• point
+• point
 
-        Causes:
-        1. Cause title
-        - explanation
-        2. Cause title
-        - explanation
-        3. Cause title
-        - explanation
+Causes:
+1. cause title
+   - explanation
+2. cause title
+   - explanation
+3. cause title
+   - explanation
 
-        Use clear technical language suitable for engineers.
+Recommended Fix:
+• fix
+• fix
+• fix
 
-        Do NOT return code.
-        Do NOT return JSON.
-        Only return formatted text.
-        """
-        
+Only return the final RCA report.
+Do not repeat the instructions.
+"""
         response = self.bedrock_client.invoke_model(
             modelId="meta.llama3-8b-instruct-v1:0",
             body=json.dumps({
@@ -62,55 +65,33 @@ class RCAEngine:
 
         result = response_body["generation"]
 
-        return result.strip()
+        # Remove prompt artifacts if any remain
+        for junk in [
+            "Use the provided log evidence",
+            "Use the format provided",
+            "Do NOT include",
+        ]:
+            result = result.replace(junk, "")
+
+            return result.strip()
+
+        # Clean unwanted artifacts
+        for junk in [
+            "```",
+            '"""',
+            "END FILE",
+            "END SOLUTION",
+            "return report",
+            "report =",
+        ]:
+            result = result.replace(junk, "")
+
+        result = result.strip()
+
+        return result
 
 
-    def generate_mitigation(self, context):
 
-        prompt = f"""
-        You are a Site Reliability Engineer.
-
-        Based on the RCA context below, suggest mitigation steps.
-
-        Context:
-        {context}
-
-        Return ONLY 3 mitigation steps in bullet format.
-
-        Example format:
-
-        • Step 1
-        • Step 2
-        • Step 3
-
-        Rules:
-        - Do NOT write code
-        - Do NOT use variables
-        - Do NOT return JSON
-        - Only return bullet points
-        """
-
-        response = self.bedrock_client.invoke_model(
-            modelId="meta.llama3-8b-instruct-v1:0",
-            body=json.dumps({
-                "prompt": prompt,
-                "max_gen_len": 80,
-                "temperature": 0.2
-            })
-        )
-
-        # Convert Bedrock response
-        response_body = json.loads(response["body"].read())
-
-        result = response_body["generation"]
-
-        # Split into lines
-        lines = result.split("\n")
-
-        # Keep only bullet points
-        clean_lines = [line.strip() for line in lines if line.strip().startswith("•")]
-
-        return "\n".join(clean_lines)
 
     def analyze(self, log_query):
 
